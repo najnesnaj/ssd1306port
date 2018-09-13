@@ -22,13 +22,6 @@
  * THE SOFTWARE.                                                                 *
  *********************************************************************************/
 
-/*************************************************************************************************
- * main.c                                                                                        *
- *                                                                                               *
- * <p>                                                                                           *
- * Integration of Adafruit OLED ST7735 1.8 display on Nordic Semiconductor NRF51 DK board <br/>  *
- *************************************************************************************************/
-
 /*******************************************************************************/
 /**********************NORDIC SEMICONDUCTOR NOTICE******************************/
 /*******************************************************************************
@@ -43,35 +36,6 @@
  * the file.                                                                   *
  *******************************************************************************/
 
-/*******************************************************************************/
-/*****************************ADAFRUIT NOTICE***********************************/
-/*******************************************************************************
- * This is a library for the Adafruit 1.8" SPI display.                        *
- * This library works with the Adafruit 1.8" TFT Breakout w/SD card            *
- *   ----> http://www.adafruit.com/products/358                                *
- * The 1.8" TFT shield                                                         *
- *   ----> https://www.adafruit.com/product/802                                *
- * The 1.44" TFT breakout                                                      *
- *   ----> https://www.adafruit.com/product/2088                               *
- * as well as Adafruit raw 1.8" TFT display                                    *
- *   ----> http://www.adafruit.com/products/618                                *
- *   Check out the links above for our tutorials and wiring diagrams           *
- *   These displays use SPI to communicate, 4 or 5 pins are required to        *
- *   interface (RST is optional)                                               *
- *   Adafruit invests time and resources providing this open source code,      *
- *   please support Adafruit and open-source hardware by purchasing            *
- *   products from Adafruit!                                                   *
- *   Written by Limor Fried/Ladyada for Adafruit Industries.                   *
- *   MIT license, all text above must be included in any redistribution        *
- *******************************************************************************/
-
-/**@file
- * @defgroup main.c
- * @{
- * @ingroup
- *
- * @brief Integration of Adafruit OLED ST7735 1.8 display on Nordic Semiconductor NRF51 DK board
- */
 #include <stdio.h>
 #include <stdbool.h>
 #include "app_timer.h"
@@ -115,7 +79,7 @@ enum BUTTON_STATE_ENUM {
 
 //JJ MISO?
 
-
+int teller=0;
 static volatile uint8_t color_index = 0;
 static volatile uint8_t button_state = BUTTON_NONE;
 
@@ -314,6 +278,7 @@ int main(void) {
 	ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, true);
 	ssd1306_display();
 	testdrawchar();
+	ssd1306_draw_pixel(10,10,WHITE);
 	//
 	//
 	//	tft_setup();
@@ -326,6 +291,11 @@ int main(void) {
 
 	for (;;)
 	{
+	ssd1306_display();
+	testdrawchar();
+	teller++;
+	if (teller > 31) teller=0;
+	ssd1306_draw_pixel(teller,teller,WHITE);
 		/*		if (button_state_change) {
 
 				button_state_change = false;

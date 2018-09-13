@@ -154,27 +154,27 @@ uint32_t send_spi_data_command(uint8_t * const p_tx_data, uint8_t * const p_rx_d
 	}
 	return err_code;
 }
+/*
+   void writecommand(uint8_t c)
+   {
+   m_tx_data[0] = c;
+   digital_write(_dc, LOW);
+   send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
+   }
+   void writedata2(uint8_t * const p_tx_data, uint8_t * const p_rx_data, uint16_t size)
+   {
+   digital_write(_dc, HIGH);
+   send_spi_data_command(p_tx_data, p_rx_data, size, 0);
+   }
 
-void writecommand(uint8_t c)
-{
-	m_tx_data[0] = c;
-	digital_write(_dc, LOW);
-	send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
-}
+   void writedata(uint8_t d)
+   {
+   m_tx_data[0] = d;
+   digital_write(_dc, HIGH);
+   send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
 
-void writedata2(uint8_t * const p_tx_data, uint8_t * const p_rx_data, uint16_t size)
-{
-	digital_write(_dc, HIGH);
-	send_spi_data_command(p_tx_data, p_rx_data, size, 0);
-}
-
-void writedata(uint8_t d)
-{
-	m_tx_data[0] = d;
-	digital_write(_dc, HIGH);
-	send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
-
-}
+   }
+   */
 
 #define ssd1306_swap(a, b) { int16_t t = a; a = b; b = t; }
 #define adagfxswap(a, b) { int16_t t = a; a = b; b = t; }
@@ -254,12 +254,14 @@ void ssd1306_command(uint8_t c)
 	     UNUSED_VARIABLE(ret);
 	     }
 	     else {*/
-	//	_HI_CS();
-	//	_LO_DC();
-	//	_LO_CS();
+	_HI_CS();
+	_LO_DC();
+	_LO_CS();
 	// 	UNUSED_VARIABLE(spi_transfer(&c, 1));
-	writecommand(c);	
-	//	_HI_CS();
+	m_tx_data[0] = c;
+	//digital_write(_dc, LOW);
+	send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
+	_HI_CS();
 	// }
 }
 
@@ -624,12 +626,18 @@ void ssd1306_data(uint8_t c)
 	      UNUSED_VARIABLE(ret);
 	      }
 	      else {*/
-	//_HI_CS();
-	//_HI_DC();
-	//_LO_CS();
+	_HI_CS();
+	_HI_DC();
+	_LO_CS();
 	//UNUSED_VARIABLE(spi_transfer(&c, 1));
-        writedata(c);	
-	//_HI_CS();
+	m_tx_data[0] = c;
+	//  digital_write(_dc, HIGH);
+	send_spi_data_command(m_tx_data, m_rx_data, 1, 0);
+
+
+
+	//writedata(c);	
+	_HI_CS();
 	// }
 }
 
@@ -661,7 +669,7 @@ void ssd1306_display(void)
 	_HI_DC();
 	_LO_CS();
 	for (uint16_t i = 0; i < (SSD1306_LCDWIDTH * SSD1306_LCDHEIGHT / 8); i++) {
-//JJ		UNUSED_VARIABLE(spi_transfer(&buffer[i], 1));
+		//JJ		UNUSED_VARIABLE(spi_transfer(&buffer[i], 1));
 	}
 	_HI_CS();
 	// }

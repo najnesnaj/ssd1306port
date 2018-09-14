@@ -291,11 +291,13 @@ int main(void) {
 
 	for (;;)
 	{
+	ssd1306_invert_display(0);
 	ssd1306_display();
 	testdrawchar();
 	teller++;
 	if (teller > 31) teller=0;
 	ssd1306_draw_pixel(teller,teller,WHITE);
+	ssd1306_invert_display(1);
 		/*		if (button_state_change) {
 
 				button_state_change = false;

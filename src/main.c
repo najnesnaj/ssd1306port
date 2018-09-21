@@ -1,339 +1,309 @@
-/*********************************************************************************
- * The MIT License (MIT)                                                         *
- * <p/>                                                                          *
- * Copyright (c) 2016 Bertrand Martel                                            *
- * <p/>                                                                          *
- * Permission is hereby granted, free of charge, to any person obtaining a copy  *
- * of this software and associated documentation files (the "Software"), to deal *
- * in the Software without restriction, including without limitation the rights  *
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell     *
- * copies of the Software, and to permit persons to whom the Software is         *
- * furnished to do so, subject to the following conditions:                      *
- * <p/>                                                                          *
- * The above copyright notice and this permission notice shall be included in    *
- * all copies or substantial portions of the Software.                           *
- * <p/>                                                                          *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR    *
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,      *
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE   *
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER        *
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, *
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN     *
- * THE SOFTWARE.                                                                 *
- *********************************************************************************/
+/* Copyright (c) 2014 Nordic Semiconductor. All Rights Reserved.
+ *
+ * The information contained herein is property of Nordic Semiconductor ASA.
+ * Terms and conditions of usage are described in detail in NORDIC
+ * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.
+ *
+ * Licensees are granted free, non-transferable use of the information. NO
+ * WARRANTY of ANY KIND is provided. This heading must NOT be removed from
+ * the file.
+ *
+ */
 
-/*******************************************************************************/
-/**********************NORDIC SEMICONDUCTOR NOTICE******************************/
-/*******************************************************************************
- * Copyright (c) 2014 Nordic Semiconductor. All Rights Reserved.               *
- *                                                                             *
- * The information contained herein is property of Nordic Semiconductor ASA.   *
- * Terms and conditions of usage are described in detail in NORDIC             *
- * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.                          *
- *                                                                             *
- * Licensees are granted free, non-transferable use of the information. NO     *
- * WARRANTY of ANY KIND is provided. This heading must NOT be removed from     *
- * the file.                                                                   *
- *******************************************************************************/
+/**@file
+ * @defgroup spi_master_example_with_slave_main main.c
+ * @{
+ * @ingroup spi_master_example
+ *
+ * @brief SPI master example application to be used with the SPI slave example application.
+ */
 
 #include <stdio.h>
 #include <stdbool.h>
-#include "app_timer.h"
-#include "bsp.h"
-#include "app_gpiote.h"
-#include "nrf_adc.h"
-#include "adafruit1_8_oled_library.h"
-#include "ssd1306.h"
+#include <stdlib.h>
+#include "app_error.h"
 #include "app_util_platform.h"
-//#include "SEGGER_RTT.h"
+#include "nrf_delay.h"
+#include "bsp.h"
+#include "app_timer.h"
+#include "nrf_drv_spi.h"
+#include "nordic_common.h"
+#include "uart_module.h"
+//#include "spi_module.h"
+#include "nrf_drv_spi.h"
+#include "ssd1306.h"
+#include "binary.h"
 
 
-#define E(x,y) x = y,
-enum BUTTON_STATE_ENUM {
-#include "button_state.h"
-};
-
-//#define E(x,y) #x,
-//static const char *BUTTON_STATE_STRING_ENUM[] = {
-//#include "button_state.h"
-//};
+#define DELAY_MS                 1000                /**< Timer Delay in milli-seconds. */
 
 /*
  * This example uses only one instance of the SPI master.
  * Please make sure that only one instance of the SPI master is enabled in config file.
  */
-#define APP_GPIOTE_MAX_USERS            1    /**< Maximum number of users of the GPIOTE handler. */
-#define APP_TIMER_PRESCALER             0    /**< Value of the RTC1 PRESCALER register. */
-#define ADC_SAMPLING_INTERVAL                APP_TIMER_TICKS(100, APP_TIMER_PRESCALER) /**< Sampling rate for the ADC */
 
-#define BUTTON_PIN 4
+#define APP_TIMER_PRESCALER      0                      /**< Value of the RTC1 PRESCALER register. */
+#define APP_TIMER_MAX_TIMERS     BSP_APP_TIMERS_NUMBER  /**< Maximum number of simultaneously created timers. */
+#define APP_TIMER_OP_QUEUE_SIZE  2                      /**< Size of timer operation queues. */
 
-#define APP_TIMER_OP_QUEUE_SIZE  2  
 
-//SD1306_CONFIG_VDD_PIN      2
+volatile bool change_rtc = false;
+extern uint8_t time_buffer[128];
+
+#define LOGO16_GLCD_HEIGHT 16
+#define LOGO16_GLCD_WIDTH  16
+
+static const unsigned char /*PROGMEM*/ logo16_glcd_bmp[] = {
+    B00000000, B11000000,
+    B00000001, B11000000,
+    B00000001, B11000000,
+    B00000011, B11100000,
+    B11110011, B11100000,
+    B11111110, B11111000,
+    B01111110, B11111111,
+    B00110011, B10011111,
+    B00011111, B11111100,
+    B00001101, B01110000,
+    B00011011, B10100000,
+    B00111111, B11100000,
+    B00111111, B11110000,
+    B01111100, B11110000,
+    B01110000, B01110000,
+    B00000000, B00110000
+};
+
+
+#define SSD1306_CONFIG_VDD_PIN      2
 #define SSD1306_CONFIG_CLK_PIN      1 
 #define SSD1306_CONFIG_MOSI_PIN     2 
-#define SSD1306_CONFIG_CS_PIN       29 
+#define SSD1306_CONFIG_CS_PIN       29
 #define SSD1306_CONFIG_DC_PIN       0
 #define SSD1306_CONFIG_RST_PIN      30
 
-//JJ MISO?
+//MISO?
 
-int teller=0;
-static volatile uint8_t color_index = 0;
-static volatile uint8_t button_state = BUTTON_NONE;
+#define SSD1306_CONFIG_SCL_PIN      27
+#define SSD1306_CONFIG_SDA_PIN      26
 
-APP_TIMER_DEF(m_adc_sampling_timer_id);
-
-static const uint16_t color_sequence[] = {
-	8,
-	ST7735_BLUE,
-	ST7735_RED,
-	ST7735_GREEN,
-	ST7735_CYAN,
-	ST7735_MAGENTA,
-	ST7735_YELLOW,
-	ST7735_WHITE,
-	ST7735_BLACK
-};
-
-static volatile bool button_state_change = false;
-
-/**@brief Function for initializing the GPIOTE handler module.
-*/
-static void gpiote_init(void)
-{
-	APP_GPIOTE_INIT(APP_GPIOTE_MAX_USERS);
-}
-
-// ADC timer handler to start ADC sampling
-static void adc_sampling_timeout_handler(void * p_context)
-{
-	NRF_ADC->EVENTS_END  = 0;
-	NRF_ADC->TASKS_START = 1;            //Start ADC sampling
-}
-
-/**@brief Function for starting application timers.
-*/
-static void application_timers_start(void)
-{
-	//ADC timer start
-	uint32_t err_code = app_timer_start(m_adc_sampling_timer_id, ADC_SAMPLING_INTERVAL, NULL);
-	APP_ERROR_CHECK(err_code);
-}
-
-/*static void increment_color() {
-  if (color_index == color_sequence[0]) {
-  color_index = 0;
-  }
-  else {
-  color_index++;
-  }
-  }
-
-  static void decrement_color() {
-  if (color_index != 0) {
-  color_index--;
-  }
-  else {
-  color_index = color_sequence[0];
-  }
-  }
-  */
-/**@brief Function to make the ADC start a battery level conversion.
-*/
-static void adc_init(void)
-{
-	NRF_ADC->CONFIG = (ADC_CONFIG_EXTREFSEL_None << ADC_CONFIG_EXTREFSEL_Pos) /*!< Analog external reference inputs disabled. */
-		| (ADC_CONFIG_PSEL_AnalogInput5 << ADC_CONFIG_PSEL_Pos)
-		| (ADC_CONFIG_REFSEL_VBG << ADC_CONFIG_REFSEL_Pos)   /*!< Use internal 1.2V bandgap voltage as reference for conversion. */
-		| (ADC_CONFIG_INPSEL_AnalogInputOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos) /*!< Analog input specified by PSEL with 1/3 prescaling used as input for the conversion. */
-		| (ADC_CONFIG_RES_10bit << ADC_CONFIG_RES_Pos);  /*!< 10bit ADC resolution. */
-	// enable ADC
-	NRF_ADC->ENABLE = 1; /* Bit 0 : ADC enable. */
-
-	NRF_ADC->INTENSET = ADC_INTENSET_END_Msk;
-	NVIC_SetPriority(ADC_IRQn, 1);
-	NVIC_EnableIRQ(ADC_IRQn);
-}
-
-/**@brief Function for initializing the button handler module.
-*/
-static void buttons_init(void)
-{
-	nrf_gpio_cfg_sense_input(BUTTON_PIN, BUTTON_PULL, NRF_GPIO_PIN_SENSE_LOW);
-}
-
-
-/**@brief ADC interrupt handler.
- * @details  This function will fetch the conversion result from the ADC, convert the value into
- *           percentage and send it to peer.
+/**@brief Function for error handling, which is called when an error has occurred.
+ *
+ * @param[in] error_code  Error code supplied to the handler.
+ * @param[in] line_num    Line number where the handler is called.
+ * @param[in] p_file_name Pointer to the file name.
  */
-void ADC_IRQHandler(void)
-{
-	NRF_ADC->EVENTS_END = 0;
-	uint16_t adc_result = NRF_ADC->RESULT;
-	NRF_ADC->TASKS_STOP = 1;
-
-	uint8_t old_state = button_state;
-
-	if (button_state == BUTTON_NONE) {
-		if (adc_result < 62) button_state = BUTTON_DOWN;
-		else if (adc_result < 310) button_state = BUTTON_RIGHT;
-		else if (adc_result < 465) button_state = BUTTON_SELECT;
-		else if (adc_result < 620) button_state = BUTTON_UP;
-		else if (adc_result < 1020) button_state = BUTTON_LEFT;
-	}
-	else {
-		if (adc_result > 1020) button_state = BUTTON_NONE;
-	}
-	if (old_state != button_state) {
-		//SEGGER_RTT_printf(0, "\x1B[32mbutton state : %s\x1B[0m\n", BUTTON_STATE_STRING_ENUM[button_state]);
-		button_state_change = true;
-	}
-}
-
-/**
- * @brief Function for initializing bsp module.
- */
-
-void bsp_configuration() {
-
-	uint32_t err_code = NRF_SUCCESS;
-
-	NRF_CLOCK->LFCLKSRC            = (CLOCK_LFCLKSRC_SRC_Xtal << CLOCK_LFCLKSRC_SRC_Pos);
-	NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
-	NRF_CLOCK->TASKS_LFCLKSTART    = 1;
-
-	while (NRF_CLOCK->EVENTS_LFCLKSTARTED == 0) {
-		// Do nothing.
-	}
-
-	APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
-
-	err_code = app_timer_create(&m_adc_sampling_timer_id,
-			APP_TIMER_MODE_REPEATED,
-			adc_sampling_timeout_handler);
-
-	err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
-	APP_ERROR_CHECK(err_code);
-}
 /*
-   void draw_bitmap() {
-   if (color_index == 0) {
-   draw_bitmap_st7735(0, ST7735_TFTHEIGHT_18, imageLogo, ST7735_TFTWIDTH, ST7735_TFTHEIGHT_18);
-   }
-   }
-   */
-/**
- * @brief Function for application main entry. Does not return.
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+    UNUSED_VARIABLE(bsp_indication_set(BSP_INDICATE_FATAL_ERROR));
+
+    for (;;) {
+        // No implementation needed.
+    }
+}
+*/
+
+
+/**@brief Function for initializing bsp module.
  */
+void bsp_configuration()
+{
+    uint32_t err_code = NRF_SUCCESS;
+
+    NRF_CLOCK->LFCLKSRC            = (CLOCK_LFCLKSRC_SRC_Xtal << CLOCK_LFCLKSRC_SRC_Pos);
+    NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
+    NRF_CLOCK->TASKS_LFCLKSTART    = 1;
+
+    while (NRF_CLOCK->EVENTS_LFCLKSTARTED == 0) {
+        // Do nothing.
+    }
+
+    APP_TIMER_INIT(APP_TIMER_PRESCALER, /*APP_TIMER_MAX_TIMERS,*/ APP_TIMER_OP_QUEUE_SIZE, NULL);
+
+    err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
 
 void testdrawchar(void)
-
 {
+    ssd1306_clear_display();
+    ssd1306_set_textsize(1);
+    ssd1306_set_textcolor(WHITE);
+    ssd1306_set_cursor(0, 0);
 
-	ssd1306_clear_display();
-
-	ssd1306_set_textsize(1);
-
-	ssd1306_set_textcolor(WHITE);
-
-	ssd1306_set_cursor(0, 0);
-
-
-
-	for (uint8_t i = 0; i < 168; i++) {
-
-		if (i == '\n') continue;
-
-		ssd1306_write(i);
-
-		if ((i > 0) && (i % 21 == 0))
-
-			ssd1306_write('\n');
-
-	}
-
-	ssd1306_display();
-
+    for (uint8_t i = 0; i < 168; i++) {
+        if (i == '\n') continue;
+        ssd1306_write(i);
+        if ((i > 0) && (i % 21 == 0))
+            ssd1306_write('\n');
+    }
+    ssd1306_display();
 }
 
 
+void testdrawline(void)
+{
+    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+        ssd1306_draw_line(0, 0, i, ssd1306_height() - 1, WHITE);
+        ssd1306_display();
+    }
+    for (int16_t i = 0; i < ssd1306_height(); i += 4) {
+        ssd1306_draw_line(0, 0, ssd1306_width() - 1, i, WHITE);
+        ssd1306_display();
+    }
+    nrf_delay_ms(250);
 
-int main(void) {
+    ssd1306_clear_display();
+    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+        ssd1306_draw_line(0, ssd1306_height() - 1, i, 0, WHITE);
+        ssd1306_display();
+    }
+    for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
+        ssd1306_draw_line(0, ssd1306_height() - 1, ssd1306_width() - 1, i, WHITE);
+        ssd1306_display();
+    }
+    nrf_delay_ms(250);
 
-	// Setup bsp module.
-	bsp_configuration();
-	buttons_init();
-	gpiote_init();
-	adc_init();
-	application_timers_start();
-	//	ssd1306_power_on();
-	//
+    ssd1306_clear_display();
+    for (int16_t i = ssd1306_width() - 1; i >= 0; i -= 4) {
+        ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, i, 0, WHITE);
+        ssd1306_display();
+    }
+    for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
+        ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, 0, i, WHITE);
+        ssd1306_display();
+    }
+    nrf_delay_ms(250);
 
-	ssd1306_init(SSD1306_CONFIG_DC_PIN, SSD1306_CONFIG_RST_PIN, SSD1306_CONFIG_CS_PIN, SSD1306_CONFIG_CLK_PIN, SSD1306_CONFIG_MOSI_PIN);
+    ssd1306_clear_display();
+    for (int16_t i = 0; i < ssd1306_height(); i += 4) {
+        ssd1306_draw_line(ssd1306_width() - 1, 0, 0, i, WHITE);
+        ssd1306_display();
+    }
+    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+        ssd1306_draw_line(ssd1306_width() - 1, 0, i, ssd1306_height() - 1, WHITE);
+        ssd1306_display();
+    }
+    nrf_delay_ms(250);
 
-
-	ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, true);
-	ssd1306_display();
-	testdrawchar();
-	ssd1306_draw_pixel(10,10,WHITE);
-	//
-	//
-	//	tft_setup();
-
-	//	fillScreen(ST7735_WHITE);
-
-	//	color_index = 0;
-
-	//	draw_bitmap_st7735(0, ST7735_TFTHEIGHT_18, imageLogo, ST7735_TFTWIDTH, ST7735_TFTHEIGHT_18);
-
-	for (;;)
-	{
-	ssd1306_invert_display(0);
-	ssd1306_display();
-	testdrawchar();
-	teller++;
-	if (teller > 31) teller=0;
-	ssd1306_draw_pixel(teller,teller,WHITE);
-	ssd1306_invert_display(1);
-		/*		if (button_state_change) {
-
-				button_state_change = false;
-		//SEGGER_RTT_printf(0, "\x1B[32mbutton_state_change\x1B[0m\n");
-
-		switch (button_state) {
-
-		case BUTTON_DOWN:
-		decrement_color();
-		draw_bitmap();
-		if (color_index != 0) {
-		fillScreen(color_sequence[color_index]);
-		}
-		break;
-		case BUTTON_RIGHT:
-		increment_color();
-		draw_bitmap();
-		if (color_index != 0) {
-		fillScreen(color_sequence[color_index]);
-		}
-		break;
-		case BUTTON_UP:
-		increment_color();
-		draw_bitmap();
-		if (color_index != 0) {
-		fillScreen(color_sequence[color_index]);
-		}
-		break;
-		case BUTTON_LEFT:
-		decrement_color();
-		draw_bitmap();
-		if (color_index != 0) {
-		fillScreen(color_sequence[color_index]);
-		}
-		break;
-		}
-		}*/
-	}
+    ssd1306_display();
+    nrf_delay_ms(250);
+    ssd1306_clear_display();
 }
+
+
+void testdrawbitmap(const uint8_t *bitmap, uint8_t w, uint8_t h)
+{
+#define NUMFLAKES 10
+#define XPOS 0
+#define YPOS 1
+#define DELTAY 2
+
+    uint8_t icons[NUMFLAKES][3];
+
+    // initialize
+    for (uint8_t f = 0; f < NUMFLAKES; f++) {
+        icons[f][XPOS] = rand() % ssd1306_width();
+        icons[f][YPOS] = 0;
+        icons[f][DELTAY] = (rand() % 5) + 1;
+    }
+
+    while (1) {
+        // draw each icon
+        for (uint8_t f = 0; f < NUMFLAKES; f++) {
+            ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS], logo16_glcd_bmp, w, h, WHITE);
+        }
+        ssd1306_display();
+        nrf_delay_ms(200);
+
+        // then erase it + move it
+        for (uint8_t f = 0; f < NUMFLAKES; f++) {
+            ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS],  logo16_glcd_bmp, w, h, BLACK);
+            // move it
+            icons[f][YPOS] += icons[f][DELTAY];
+            // if its gone, reinit
+            if (icons[f][YPOS] > ssd1306_height()) {
+                icons[f][XPOS] = rand() % ssd1306_width();
+                icons[f][YPOS] = 0;
+                icons[f][DELTAY] = (rand() % 5) + 1;
+            }
+        }
+    }
+}
+
+void ssd1306_power_on(void)
+{
+    nrf_gpio_pin_set(SSD1306_CONFIG_VDD_PIN); // vdd
+    nrf_gpio_cfg(
+        SSD1306_CONFIG_VDD_PIN,
+        NRF_GPIO_PIN_DIR_OUTPUT,
+        NRF_GPIO_PIN_INPUT_DISCONNECT,
+        NRF_GPIO_PIN_NOPULL,
+        NRF_GPIO_PIN_H0H1, // NRF_GPIO_PIN_S0S1,
+        NRF_GPIO_PIN_NOSENSE);
+}
+
+
+/**@brief Function for application main entry. Does not return. */
+int main(void)
+{
+    // Setup bsp module.
+    bsp_configuration();
+
+    uart_init();
+      printf("\n\rtest: \n\r");
+//#if 0
+    ssd1306_power_on();
+    ssd1306_init(SSD1306_CONFIG_DC_PIN,
+                 SSD1306_CONFIG_RST_PIN,
+                 SSD1306_CONFIG_CS_PIN,
+                 SSD1306_CONFIG_CLK_PIN,
+                 SSD1306_CONFIG_MOSI_PIN);
+
+    ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, true);
+//#else
+ //   ssd1306_init_i2c(SSD1306_CONFIG_SCL_PIN, SSD1306_CONFIG_SDA_PIN);
+  //  ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, false);
+//#endif
+
+    nrf_delay_ms(1000);
+    puts("--- START ---");
+
+    nrf_delay_ms(1000);
+    ssd1306_display();
+    nrf_delay_ms(DELAY_MS);
+
+    testdrawline();
+
+    for (;;) {
+        ssd1306_clear_display();
+        // draw a single pixel
+        ssd1306_draw_pixel(10, 10, WHITE);
+        ssd1306_display();
+        nrf_delay_ms(DELAY_MS);
+
+        ssd1306_draw_circle(SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2, 30, WHITE);
+        ssd1306_display();
+        nrf_delay_ms(DELAY_MS);
+
+        testdrawchar();
+        nrf_delay_ms(DELAY_MS);
+
+        ssd1306_clear_display();
+        ssd1306_display();
+        nrf_delay_ms(DELAY_MS);
+
+        testdrawline();
+
+        ssd1306_clear_display();
+        ssd1306_draw_bitmap(30, 16,  logo16_glcd_bmp, 16, 16, 1);
+        ssd1306_display();
+        nrf_delay_ms(DELAY_MS);
+
+        // draw a bitmap icon and 'animate' movement
+        testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
+    }
+}
+
+
+/** @} */

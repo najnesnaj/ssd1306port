@@ -38,19 +38,21 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 #source common to all targets
 C_SOURCE_FILES += \
 $(abspath $(NRF51_SDK_DIR)/components/libraries/button/app_button.c) \
+$(abspath $(NRF51_SDK_DIR)/components/libraries/uart/app_uart.c) \
 $(abspath $(NRF51_SDK_DIR)/components/libraries/util/app_error.c) \
 $(abspath $(NRF51_SDK_DIR)/components/libraries/timer/app_timer.c) \
 $(abspath $(NRF51_SDK_DIR)/components/libraries/util/app_util_platform.c) \
 $(abspath $(NRF51_SDK_DIR)/components/libraries/util/nrf_assert.c) \
 $(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/delay/nrf_delay.c) \
 $(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/common/nrf_drv_common.c) \
-$(abspath $(NRF51_SDK_DIR)/components/libraries/gpiote/app_gpiote.c) \
+$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/hal/nrf_adc.c) \
 $(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/gpiote/nrf_drv_gpiote.c) \
 $(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/spi_master/nrf_drv_spi.c) \
-$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/hal/nrf_adc.c) \
+$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/uart/nrf_drv_uart.c) \
 $(abspath $(NRF51_SDK_DIR)/examples/bsp/bsp.c) \
-$(abspath src/common.c) \
+$(abspath src/spi_module.c) \
 $(abspath src/ssd1306.c) \
+$(abspath src/uart_module.c) \
 $(abspath src/main.c) \
 $(abspath $(NRF51_SDK_DIR)/components/toolchain/system_nrf51.c)
 
@@ -62,6 +64,8 @@ INC_PATHS += -I$(abspath include)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/examples/bsp)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/nrf_soc_nosd)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/device)
+INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/libraries/uart)
+INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/uart)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/hal)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/libraries/button)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/delay)
@@ -70,6 +74,8 @@ INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/libraries/util)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/libraries/log/src)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/common)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/pstorage)
+INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/twi_master)
+INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/gpiote)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/toolchain)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/libraries/timer)
 INC_PATHS += -I$(abspath $(NRF51_SDK_DIR)/components/drivers_nrf/config)
@@ -89,7 +95,7 @@ BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LIS
 #flags common to all targets
 CFLAGS  = -DNRF51
 CFLAGS += -DSWI_DISABLE0
-CFLAGS += -DBOARD_PCA10028
+CFLAGS += -DBOARD_ID107
 CFLAGS += -mcpu=cortex-m0
 CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -O3 -Werror
@@ -111,7 +117,7 @@ LDFLAGS += --specs=nano.specs -lc -lnosys
 ASMFLAGS += -x assembler-with-cpp
 ASMFLAGS += -DNRF51
 ASMFLAGS += -DSWI_DISABLE0
-ASMFLAGS += -DBOARD_PCA10028
+ASMFLAGS += -DBOARD_ID107
 #default target - first one defined
 default: clean nrf51422_xxac
 

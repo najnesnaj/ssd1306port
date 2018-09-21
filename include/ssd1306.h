@@ -39,8 +39,9 @@ typedef uint32_t PortMask;
 /*=========================================================================*/
 #if defined SSD1306_64_32
 #define SSD1306_LCDWIDTH                  64 
-#define SSD1306_LCDHEIGHT                 32 
+#define SSD1306_LCDHEIGHT                 32
 #endif
+
 
 #if defined SSD1306_128_64
 #define SSD1306_LCDWIDTH                  128
@@ -91,69 +92,6 @@ typedef uint32_t PortMask;
 
 #define SSD1306_EXTERNALVCC 0x1
 #define SSD1306_SWITCHCAPVCC 0x2
-
-// JJ
-
-
-#define CHARGEPUMP 0x8D
-
-
-
-#define COLUMNADDR 0x21
-
-#define PAGEADDR 0x22
-
-
-
-#define COMSCANDEC 0xC8
-
-#define COMSCANINC 0xC0
-
-#define DISPLAYALLON 0xA5
-
-#define DISPLAYALLON_RESUME 0xA4
-
-#define DISPLAYOFF 0xAE
-
-#define DISPLAYON 0xAF
-
-#define EXTERNALVCC 0x1
-
-#define INVERTDISPLAY 0xA7
-
-#define MEMORYMODE 0x20
-
-#define NORMALDISPLAY 0xA6
-
-#define SEGREMAP 0xA0
-
-#define SETCOMPINS 0xDA
-
-#define SETCONTRAST 0x81
-
-#define SETDISPLAYCLOCKDIV 0xD5
-
-#define SETDISPLAYOFFSET 0xD3
-
-#define SETHIGHCOLUMN 0x10
-
-#define SETLOWCOLUMN 0x00
-
-#define SETMULTIPLEX 0xA8
-
-#define SETPRECHARGE 0xD9
-
-#define SETSEGMENTREMAP 0xA1
-
-#define SETSTARTLINE 0x40
-
-#define SETVCOMDETECT 0xDB
-
-#define SWITCHCAPVCC 0x2
-
-#define DEACTIVATESCROLL 0x2
-
-
 
 // Scrolling #defines
 #define SSD1306_ACTIVATE_SCROLL 0x2F

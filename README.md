@@ -14,3 +14,16 @@ under sdk11/examples/bsp replace boards.h and add id107.h from the bsp directory
 adapt Makefile.posix  (see example in this repository)
 <SDK11>/components/toolchain/gcc/Makefile.posix
 
+
+there is a script : ci.sh which automates the install (not tested)
+
+
+
+if you want to use this program with the softdevice and bootloader : you will have to change  ssd1306_gcc_nrf51.ld :
+
+eg: FLASH (rx) : ORIGIN = 0x0, LENGTH = 0x19FFF, becomes :
+FLASH (rx) : ORIGIN = 0x3a000 , LENGTH = 0x19FFF
+
+under _build you can find nrf51422_xxac.hex which you can upload to your watch
+
+Have Fun!

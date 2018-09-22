@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "app_uart.h"
 #include "app_error.h"
 #include "app_util_platform.h"
 #include "nrf_delay.h"
@@ -28,7 +29,7 @@
 #include "app_timer.h"
 #include "nrf_drv_spi.h"
 #include "nordic_common.h"
-#include "uart_module.h"
+//#include "uart_module.h"
 //#include "spi_module.h"
 #include "nrf_drv_spi.h"
 #include "ssd1306.h"
@@ -42,6 +43,25 @@
  * Please make sure that only one instance of the SPI master is enabled in config file.
  */
 
+//#define MAX_TEST_DATA_BYTES     (15U)                /**< max number of test bytes to be used for tx and rx. */
+#define UART_TX_BUF_SIZE 256                         /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE 1                         /**< UART RX buffer size. */
+
+void uart_error_handle(app_uart_evt_t * p_event)
+{
+	if (p_event->evt_type == APP_UART_COMMUNICATION_ERROR)
+	{
+		APP_ERROR_HANDLER(p_event->data.error_communication);
+	}
+	else if (p_event->evt_type == APP_UART_FIFO_ERROR)
+	{
+		APP_ERROR_HANDLER(p_event->data.error_code);
+	}
+}
+
+
+
+
 #define APP_TIMER_PRESCALER      0                      /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS     BSP_APP_TIMERS_NUMBER  /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE  2                      /**< Size of timer operation queues. */
@@ -54,24 +74,26 @@ extern uint8_t time_buffer[128];
 #define LOGO16_GLCD_WIDTH  16
 
 static const unsigned char /*PROGMEM*/ logo16_glcd_bmp[] = {
-    B00000000, B11000000,
-    B00000001, B11000000,
-    B00000001, B11000000,
-    B00000011, B11100000,
-    B11110011, B11100000,
-    B11111110, B11111000,
-    B01111110, B11111111,
-    B00110011, B10011111,
-    B00011111, B11111100,
-    B00001101, B01110000,
-    B00011011, B10100000,
-    B00111111, B11100000,
-    B00111111, B11110000,
-    B01111100, B11110000,
-    B01110000, B01110000,
-    B00000000, B00110000
+	B00000000, B11000000,
+	B00000001, B11000000,
+	B00000001, B11000000,
+	B00000011, B11100000,
+	B11110011, B11100000,
+	B11111110, B11111000,
+	B01111110, B11111111,
+	B00110011, B10011111,
+	B00011111, B11111100,
+	B00001101, B01110000,
+	B00011011, B10100000,
+	B00111111, B11100000,
+	B00111111, B11110000,
+	B01111100, B11110000,
+	B01110000, B01110000,
+	B00000000, B00110000
 };
 
+
+char p[7] = "ID107HR";
 
 #define SSD1306_CONFIG_VDD_PIN      2
 #define SSD1306_CONFIG_CLK_PIN      1 
@@ -82,8 +104,8 @@ static const unsigned char /*PROGMEM*/ logo16_glcd_bmp[] = {
 
 //MISO?
 
-#define SSD1306_CONFIG_SCL_PIN      27
-#define SSD1306_CONFIG_SDA_PIN      26
+//#define SSD1306_CONFIG_SCL_PIN      27
+//#define SSD1306_CONFIG_SDA_PIN      26
 
 /**@brief Function for error handling, which is called when an error has occurred.
  *
@@ -92,103 +114,104 @@ static const unsigned char /*PROGMEM*/ logo16_glcd_bmp[] = {
  * @param[in] p_file_name Pointer to the file name.
  */
 /*
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
-{
-    UNUSED_VARIABLE(bsp_indication_set(BSP_INDICATE_FATAL_ERROR));
+   void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+   {
+   UNUSED_VARIABLE(bsp_indication_set(BSP_INDICATE_FATAL_ERROR));
 
-    for (;;) {
-        // No implementation needed.
-    }
+   for (;;) {
+// No implementation needed.
+}
 }
 */
 
 
 /**@brief Function for initializing bsp module.
- */
+*/
 void bsp_configuration()
 {
-    uint32_t err_code = NRF_SUCCESS;
+	uint32_t err_code = NRF_SUCCESS;
 
-    NRF_CLOCK->LFCLKSRC            = (CLOCK_LFCLKSRC_SRC_Xtal << CLOCK_LFCLKSRC_SRC_Pos);
-    NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
-    NRF_CLOCK->TASKS_LFCLKSTART    = 1;
+	NRF_CLOCK->LFCLKSRC            = (CLOCK_LFCLKSRC_SRC_Xtal << CLOCK_LFCLKSRC_SRC_Pos);
+	NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
+	NRF_CLOCK->TASKS_LFCLKSTART    = 1;
 
-    while (NRF_CLOCK->EVENTS_LFCLKSTARTED == 0) {
-        // Do nothing.
-    }
+	while (NRF_CLOCK->EVENTS_LFCLKSTARTED == 0) {
+		// Do nothing.
+	}
 
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, /*APP_TIMER_MAX_TIMERS,*/ APP_TIMER_OP_QUEUE_SIZE, NULL);
+	APP_TIMER_INIT(APP_TIMER_PRESCALER, /*APP_TIMER_MAX_TIMERS,*/ APP_TIMER_OP_QUEUE_SIZE, NULL);
 
-    err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
-    APP_ERROR_CHECK(err_code);
+	err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
+	APP_ERROR_CHECK(err_code);
 }
 
 
 void testdrawchar(void)
 {
-    ssd1306_clear_display();
-    ssd1306_set_textsize(1);
-    ssd1306_set_textcolor(WHITE);
-    ssd1306_set_cursor(0, 0);
-
-    for (uint8_t i = 0; i < 168; i++) {
-        if (i == '\n') continue;
-        ssd1306_write(i);
-        if ((i > 0) && (i % 21 == 0))
-            ssd1306_write('\n');
-    }
-    ssd1306_display();
+	ssd1306_clear_display();
+	ssd1306_set_textsize(1);
+	ssd1306_set_textcolor(WHITE);
+	ssd1306_set_cursor(0, 10);
+	ssd1306_putstring(p);
+	/*	  
+		  for (uint8_t i = 0; i < 168; i++) {
+		  if (i == '\n') continue;
+		  ssd1306_write(i);
+		  if ((i > 0) && (i % 21 == 0))
+		  ssd1306_write('\n');
+		  }*/
+	ssd1306_display();
 }
 
 
 void testdrawline(void)
 {
-    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
-        ssd1306_draw_line(0, 0, i, ssd1306_height() - 1, WHITE);
-        ssd1306_display();
-    }
-    for (int16_t i = 0; i < ssd1306_height(); i += 4) {
-        ssd1306_draw_line(0, 0, ssd1306_width() - 1, i, WHITE);
-        ssd1306_display();
-    }
-    nrf_delay_ms(250);
+	for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+		ssd1306_draw_line(0, 0, i, ssd1306_height() - 1, WHITE);
+		ssd1306_display();
+	}
+	for (int16_t i = 0; i < ssd1306_height(); i += 4) {
+		ssd1306_draw_line(0, 0, ssd1306_width() - 1, i, WHITE);
+		ssd1306_display();
+	}
+	nrf_delay_ms(250);
 
-    ssd1306_clear_display();
-    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
-        ssd1306_draw_line(0, ssd1306_height() - 1, i, 0, WHITE);
-        ssd1306_display();
-    }
-    for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
-        ssd1306_draw_line(0, ssd1306_height() - 1, ssd1306_width() - 1, i, WHITE);
-        ssd1306_display();
-    }
-    nrf_delay_ms(250);
+	ssd1306_clear_display();
+	for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+		ssd1306_draw_line(0, ssd1306_height() - 1, i, 0, WHITE);
+		ssd1306_display();
+	}
+	for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
+		ssd1306_draw_line(0, ssd1306_height() - 1, ssd1306_width() - 1, i, WHITE);
+		ssd1306_display();
+	}
+	nrf_delay_ms(250);
 
-    ssd1306_clear_display();
-    for (int16_t i = ssd1306_width() - 1; i >= 0; i -= 4) {
-        ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, i, 0, WHITE);
-        ssd1306_display();
-    }
-    for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
-        ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, 0, i, WHITE);
-        ssd1306_display();
-    }
-    nrf_delay_ms(250);
+	ssd1306_clear_display();
+	for (int16_t i = ssd1306_width() - 1; i >= 0; i -= 4) {
+		ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, i, 0, WHITE);
+		ssd1306_display();
+	}
+	for (int16_t i = ssd1306_height() - 1; i >= 0; i -= 4) {
+		ssd1306_draw_line(ssd1306_width() - 1, ssd1306_height() - 1, 0, i, WHITE);
+		ssd1306_display();
+	}
+	nrf_delay_ms(250);
 
-    ssd1306_clear_display();
-    for (int16_t i = 0; i < ssd1306_height(); i += 4) {
-        ssd1306_draw_line(ssd1306_width() - 1, 0, 0, i, WHITE);
-        ssd1306_display();
-    }
-    for (int16_t i = 0; i < ssd1306_width(); i += 4) {
-        ssd1306_draw_line(ssd1306_width() - 1, 0, i, ssd1306_height() - 1, WHITE);
-        ssd1306_display();
-    }
-    nrf_delay_ms(250);
+	ssd1306_clear_display();
+	for (int16_t i = 0; i < ssd1306_height(); i += 4) {
+		ssd1306_draw_line(ssd1306_width() - 1, 0, 0, i, WHITE);
+		ssd1306_display();
+	}
+	for (int16_t i = 0; i < ssd1306_width(); i += 4) {
+		ssd1306_draw_line(ssd1306_width() - 1, 0, i, ssd1306_height() - 1, WHITE);
+		ssd1306_display();
+	}
+	nrf_delay_ms(250);
 
-    ssd1306_display();
-    nrf_delay_ms(250);
-    ssd1306_clear_display();
+	ssd1306_display();
+	nrf_delay_ms(250);
+	ssd1306_clear_display();
 }
 
 
@@ -199,110 +222,139 @@ void testdrawbitmap(const uint8_t *bitmap, uint8_t w, uint8_t h)
 #define YPOS 1
 #define DELTAY 2
 
-    uint8_t icons[NUMFLAKES][3];
+	uint8_t icons[NUMFLAKES][3];
 
-    // initialize
-    for (uint8_t f = 0; f < NUMFLAKES; f++) {
-        icons[f][XPOS] = rand() % ssd1306_width();
-        icons[f][YPOS] = 0;
-        icons[f][DELTAY] = (rand() % 5) + 1;
-    }
+	// initialize
+	for (uint8_t f = 0; f < NUMFLAKES; f++) {
+		icons[f][XPOS] = rand() % ssd1306_width();
+		icons[f][YPOS] = 10;
+		icons[f][DELTAY] = (rand() % 5) + 1;
+	}
 
-    while (1) {
-        // draw each icon
-        for (uint8_t f = 0; f < NUMFLAKES; f++) {
-            ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS], logo16_glcd_bmp, w, h, WHITE);
-        }
-        ssd1306_display();
-        nrf_delay_ms(200);
+	while (1) {
+		// draw each icon
+		for (uint8_t f = 0; f < NUMFLAKES; f++) {
+			ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS], logo16_glcd_bmp, w, h, WHITE);
+		}
+		ssd1306_display();
+		nrf_delay_ms(200);
 
-        // then erase it + move it
-        for (uint8_t f = 0; f < NUMFLAKES; f++) {
-            ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS],  logo16_glcd_bmp, w, h, BLACK);
-            // move it
-            icons[f][YPOS] += icons[f][DELTAY];
-            // if its gone, reinit
-            if (icons[f][YPOS] > ssd1306_height()) {
-                icons[f][XPOS] = rand() % ssd1306_width();
-                icons[f][YPOS] = 0;
-                icons[f][DELTAY] = (rand() % 5) + 1;
-            }
-        }
-    }
+		// then erase it + move it
+		for (uint8_t f = 0; f < NUMFLAKES; f++) {
+			ssd1306_draw_bitmap(icons[f][XPOS], icons[f][YPOS],  logo16_glcd_bmp, w, h, BLACK);
+			// move it
+			icons[f][YPOS] += icons[f][DELTAY];
+			// if its gone, reinit
+			if (icons[f][YPOS] > ssd1306_height()) {
+				icons[f][XPOS] = rand() % ssd1306_width();
+				icons[f][YPOS] = 0;
+				icons[f][DELTAY] = (rand() % 5) + 1;
+			}
+		}
+	}
 }
 
 void ssd1306_power_on(void)
 {
-    nrf_gpio_pin_set(SSD1306_CONFIG_VDD_PIN); // vdd
-    nrf_gpio_cfg(
-        SSD1306_CONFIG_VDD_PIN,
-        NRF_GPIO_PIN_DIR_OUTPUT,
-        NRF_GPIO_PIN_INPUT_DISCONNECT,
-        NRF_GPIO_PIN_NOPULL,
-        NRF_GPIO_PIN_H0H1, // NRF_GPIO_PIN_S0S1,
-        NRF_GPIO_PIN_NOSENSE);
+	nrf_gpio_pin_set(SSD1306_CONFIG_VDD_PIN); // vdd
+	nrf_gpio_cfg(
+			SSD1306_CONFIG_VDD_PIN,
+			NRF_GPIO_PIN_DIR_OUTPUT,
+			NRF_GPIO_PIN_INPUT_DISCONNECT,
+			NRF_GPIO_PIN_NOPULL,
+			NRF_GPIO_PIN_H0H1, // NRF_GPIO_PIN_S0S1,
+			NRF_GPIO_PIN_NOSENSE);
 }
 
 
 /**@brief Function for application main entry. Does not return. */
 int main(void)
 {
-    // Setup bsp module.
-    bsp_configuration();
+//	bsp_configuration();
+	uint32_t err_code;
+	// Setup bsp module.
 
-    uart_init();
-      printf("\n\rtest: \n\r");
-//#if 0
-    ssd1306_power_on();
-    ssd1306_init(SSD1306_CONFIG_DC_PIN,
-                 SSD1306_CONFIG_RST_PIN,
-                 SSD1306_CONFIG_CS_PIN,
-                 SSD1306_CONFIG_CLK_PIN,
-                 SSD1306_CONFIG_MOSI_PIN);
+	//uart_init();
 
-    ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, true);
-//#else
- //   ssd1306_init_i2c(SSD1306_CONFIG_SCL_PIN, SSD1306_CONFIG_SDA_PIN);
-  //  ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, false);
-//#endif
+	const app_uart_comm_params_t comm_params =
+	{
+		RX_PIN_NUMBER,
+		TX_PIN_NUMBER,
+		RTS_PIN_NUMBER,
+		CTS_PIN_NUMBER,
+		APP_UART_FLOW_CONTROL_DISABLED,
+		false,
+		UART_BAUDRATE_BAUDRATE_Baud115200
+	};
 
-    nrf_delay_ms(1000);
-    puts("--- START ---");
+	APP_UART_FIFO_INIT(&comm_params,
+			UART_RX_BUF_SIZE,
+			UART_TX_BUF_SIZE,
+			uart_error_handle,
+			APP_IRQ_PRIORITY_LOW,
+			err_code);
 
-    nrf_delay_ms(1000);
-    ssd1306_display();
-    nrf_delay_ms(DELAY_MS);
+	APP_ERROR_CHECK(err_code);
+	printf("\n\rtest: \n\r");
 
-    testdrawline();
 
-    for (;;) {
-        ssd1306_clear_display();
-        // draw a single pixel
-        ssd1306_draw_pixel(10, 10, WHITE);
-        ssd1306_display();
-        nrf_delay_ms(DELAY_MS);
 
-        ssd1306_draw_circle(SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2, 30, WHITE);
-        ssd1306_display();
-        nrf_delay_ms(DELAY_MS);
+	//#if 0
+	ssd1306_power_on();
+	ssd1306_init(SSD1306_CONFIG_DC_PIN,
+			SSD1306_CONFIG_RST_PIN,
+			SSD1306_CONFIG_CS_PIN,
+			SSD1306_CONFIG_CLK_PIN,
+			SSD1306_CONFIG_MOSI_PIN);
 
-        testdrawchar();
-        nrf_delay_ms(DELAY_MS);
+	ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, true);
+	//#else
+	//   ssd1306_init_i2c(SSD1306_CONFIG_SCL_PIN, SSD1306_CONFIG_SDA_PIN);
+	//  ssd1306_begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS, false);
+	//#endif
 
-        ssd1306_clear_display();
-        ssd1306_display();
-        nrf_delay_ms(DELAY_MS);
+	nrf_delay_ms(1000);
+	//puts("--- START ---");
 
-        testdrawline();
+//	nrf_delay_ms(1000);
+//	nrf_delay_ms(DELAY_MS);
 
-        ssd1306_clear_display();
-        ssd1306_draw_bitmap(30, 16,  logo16_glcd_bmp, 16, 16, 1);
-        ssd1306_display();
-        nrf_delay_ms(DELAY_MS);
+	testdrawline();
+	ssd1306_display();
+	nrf_delay_ms(2000);
 
-        // draw a bitmap icon and 'animate' movement
-        testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
-    }
+	for (;;) {
+	printf("Rip Mayall was here \n\r");
+	nrf_delay_ms(2000);
+		ssd1306_clear_display();
+		// draw a single pixel
+		ssd1306_draw_pixel(10, 10, WHITE);
+		ssd1306_display();
+		//		nrf_delay_ms(DELAY_MS);
+
+		//		    ssd1306_draw_circle(SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2, 30, WHITE);
+		//  ssd1306_display();
+		//  nrf_delay_ms(DELAY_MS);
+
+		//	testdrawchar();
+		//		ssd1306_set_cursor(0,0);
+		//		ssd1306_putstring(p);
+		//	nrf_delay_ms(DELAY_MS);
+
+		//	ssd1306_clear_display();
+		//		ssd1306_display();
+		//		nrf_delay_ms(DELAY_MS);
+
+		//        testdrawline();
+
+		//       ssd1306_clear_display();
+		//      ssd1306_draw_bitmap(30, 16,  logo16_glcd_bmp, 16, 16, 1);
+		//     ssd1306_display();
+		//	nrf_delay_ms(DELAY_MS);
+
+		// draw a bitmap icon and 'animate' movement
+//		testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
+	}
 }
 
 

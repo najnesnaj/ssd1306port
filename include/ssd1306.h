@@ -34,6 +34,8 @@ typedef uint32_t PortMask;
     SSD1306_96_16
     -----------------------------------------------------------------------*/
 #define SSD1306_64_32
+#define SSD1306_LCDWIDTH                  64 
+#define SSD1306_LCDHEIGHT                 32
 //   #define SSD1306_128_32
 //   #define SSD1306_96_16
 /*=========================================================================*/
@@ -82,6 +84,7 @@ typedef uint32_t PortMask;
 #define SSD1306_MEMORYMODE 0x20
 #define SSD1306_COLUMNADDR 0x21
 #define SSD1306_PAGEADDR   0x22
+//#define SSD1306_PAGEADDR   0xB0
 
 #define SSD1306_COMSCANINC 0xC0
 #define SSD1306_COMSCANDEC 0xC8
@@ -95,7 +98,8 @@ typedef uint32_t PortMask;
 
 // Scrolling #defines
 #define SSD1306_ACTIVATE_SCROLL 0x2F
-#define SSD1306_DEACTIVATE_SCROLL 0x2E
+//#define SSD1306_DEACTIVATE_SCROLL 0x2E
+#define SSD1306_DEACTIVATE_SCROLL 0x2
 #define SSD1306_SET_VERTICAL_SCROLL_AREA 0xA3
 #define SSD1306_RIGHT_HORIZONTAL_SCROLL 0x26
 #define SSD1306_LEFT_HORIZONTAL_SCROLL 0x27

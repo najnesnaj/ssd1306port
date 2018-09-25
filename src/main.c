@@ -270,11 +270,10 @@ void ssd1306_power_on(void)
 /**@brief Function for application main entry. Does not return. */
 int main(void)
 {
-//	bsp_configuration();
+	//	bsp_configuration();
 	uint32_t err_code;
 	// Setup bsp module.
 
-	//uart_init();
 
 	const app_uart_comm_params_t comm_params =
 	{
@@ -316,20 +315,25 @@ int main(void)
 	nrf_delay_ms(1000);
 	//puts("--- START ---");
 
-//	nrf_delay_ms(1000);
-//	nrf_delay_ms(DELAY_MS);
+	//	nrf_delay_ms(1000);
+	//	nrf_delay_ms(DELAY_MS);
 
 	testdrawline();
 	ssd1306_display();
 	nrf_delay_ms(2000);
 
+	printf("height %d",ssd1306_height());
+	printf("height %d",ssd1306_width());
+
+
 	for (;;) {
-	printf("Rip Mayall was here \n\r");
-	nrf_delay_ms(2000);
+		printf("Rip Mayall was here \n\r");
 		ssd1306_clear_display();
-		// draw a single pixel
-		ssd1306_draw_pixel(10, 10, WHITE);
+		testdrawline();
 		ssd1306_display();
+		nrf_delay_ms(2000);
+		// draw a single pixel
+		//		ssd1306_draw_pixel(10, 10, WHITE);
 		//		nrf_delay_ms(DELAY_MS);
 
 		//		    ssd1306_draw_circle(SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2, 30, WHITE);
@@ -353,7 +357,9 @@ int main(void)
 		//	nrf_delay_ms(DELAY_MS);
 
 		// draw a bitmap icon and 'animate' movement
-//		testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
+		//	testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
+		//	ssd1306_display();
+		//nrf_delay_ms(2000);
 	}
 }
 

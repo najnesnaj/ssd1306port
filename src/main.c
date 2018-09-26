@@ -357,9 +357,9 @@ int main(void)
 		//	nrf_delay_ms(DELAY_MS);
 
 		// draw a bitmap icon and 'animate' movement
-		//	testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
-		//	ssd1306_display();
-		//nrf_delay_ms(2000);
+			testdrawbitmap(logo16_glcd_bmp, LOGO16_GLCD_HEIGHT, LOGO16_GLCD_WIDTH);
+			ssd1306_display();
+		   nrf_delay_ms(2000);
 	}
 }
 

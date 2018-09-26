@@ -161,9 +161,9 @@ void ssd1306_begin(uint8_t vccstate, uint8_t i2caddr, bool reset)
 	ssd1306_command(0x14);
 	//	}
 	ssd1306_command(SSD1306_MEMORYMODE);                    // 0x20
-	//ssd1306_command(0x03);                                  // 0x0 act like ks0108
-	ssd1306_command(0);                                  // 0x0 act like ks0108
-	ssd1306_command(SSD1306_SEGREMAP | 0x1);
+	ssd1306_command(0x00);                                  // 0x0 act like ks0108
+	//ssd1306_command(0x02);                                  // 0x0 act like ks0108
+	ssd1306_command(SSD1306_SEGREMAP | 0x1); //flip screen vertically
 	//	ssd1306_command(0xA1);
 	ssd1306_command(SSD1306_COMSCANDEC);
 	//	ssd1306_command(0xC8);
@@ -353,11 +353,11 @@ void ssd1306_data(uint8_t c)
 
 void ssd1306_display(void)
 {
+	/*
+	//normal display mode
 	ssd1306_command(SSD1306_COLUMNADDR);
-//	ssd1306_command(0x0);   // Column start address (0 = reset)
-//	ssd1306_command(SSD1306_LCDWIDTH - 1); // Column end address (127 = reset)
-	ssd1306_command(0x20);   // Column start address (0 = reset)
-	ssd1306_command(0x20 + (SSD1306_LCDWIDTH - 1)); // Column end address (127 = reset)
+	ssd1306_command(0x0);   // Column start address (0 = reset)
+	ssd1306_command(0x0 + (SSD1306_LCDWIDTH - 1)); // Column end address (127 = reset)
 	//normal display mode	
 	ssd1306_command(SSD1306_PAGEADDR ); //send page address
 //	ssd1306_command(0xB0); //send page address
@@ -366,25 +366,30 @@ void ssd1306_display(void)
 	_HI_CS();
 	_HI_DC();
 	_LO_CS();
-	for (uint8_t i = 0; i < (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT / 8); i++) 
-	spi_transfer(&buffer[i], 1);
+//	for (uint8_t i = 0; i < (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT / 8); i++) 
+	spi_transfer(&buffer[0], 32*64);
 	_HI_CS();
+
+*/
+
+	
 	//this is paged display mode
-/*	for (uint8_t r = 0; r < (SSD1306_LCDHEIGHT / 8); r++) 
+	for (uint8_t r = 0; r < (SSD1306_LCDHEIGHT / 8); r++) 
 	{
+r=r&0x0F;
 		//ssd1306_command(SSD1306_PAGEADDR |r ); //send page address
-		ssd1306_command(0xB0| r ); //send page address
-		ssd1306_data(0x0); 
-		ssd1306_data(0x40); // Page end address
+		ssd1306_command(0xB0 | r); //send page address
+		ssd1306_command(0x0); 
+		ssd1306_command(0x12); // Page end address
 		_HI_CS();
 		_HI_DC();
 		_LO_CS();
-		spi_transfer(&buffer[(r*SSD1306_LCDWIDTH)], SSD1306_LCDWIDTH);
+		UNUSED_VARIABLE(spi_transfer(&buffer[(r*SSD1306_LCDWIDTH)], SSD1306_LCDWIDTH));
 	//	for (uint16_t c = r*SSD1306_LCDWIDTH; c < (r+1)*SSD1306_LCDWIDTH ; c+=16) {
 	//		UNUSED_VARIABLE(spi_transfer(&buffer[c], 16));
 	//	}
 		_HI_CS();
-	}*/
+	}
 }
 
 // clear everything
